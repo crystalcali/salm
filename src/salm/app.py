@@ -179,3 +179,25 @@ with t4:
         st.caption("Depth prediction is supervised distillation, NOT a JEPA model of action consequences.")
     else:
         st.info("Collect >=3 real prompts, then run 'salm probe --input runs --source 7 --target 11'.")
+
+    intervention_files = []
+    for f in sorted(folder.glob("*.json")):
+        try:
+            result = json.loads(f.read_text())
+        except (ValueError, OSError):
+            continue
+        if result.get("experiment") == "module_ablation":
+            intervention_files.append((f, result))
+    if intervention_files:
+        st.divider()
+        st.subheader("Causal module interventions")
+        selection = st.selectbox("Intervention report", intervention_files,
+                                 format_func=lambda x: x[0].name)
+        result = selection[1]
+        st.caption("Next-token KL(base || intervened). Larger KL means a stronger local effect, not necessarily higher importance or better quality.")
+        rows = pd.DataFrame(result["rows"])
+        chart(px.bar(rows, x="layer", y="kl_base_to_modified",
+                     title="Change in next-token distribution when the module output is scaled"))
+        st.dataframe(rows, use_container_width=True)
+    else:
+        st.info("Run 'salm intervene --all --module ffn --scale 0' to find sensitive blocks.")

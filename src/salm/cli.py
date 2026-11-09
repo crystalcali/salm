@@ -24,6 +24,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="runs/capture.npz")
     p.add_argument("--max-tokens", type=int, default=256)
     p.add_argument("--modules", default="", help="Comma-separated: ffn,operator")
+    p = commands.add_parser("batch", help="Capture one prompt per line, loading model only once")
+    p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--prompts-file", required=True)
+    p.add_argument("--out-dir", default="runs/batch")
+    p.add_argument("--max-tokens", type=int, default=256)
+    p.add_argument("--modules", default="ffn,operator")
+    p = commands.add_parser("intervene", help="Scale FFN or operator output; measure next-token KL")
+    p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--prompt", required=True)
+    p.add_argument("--layer", type=int, default=7)
+    p.add_argument("--all", action="store_true", help="Sweep all decoder blocks")
+    p.add_argument("--module", choices=["ffn", "operator"], default="ffn")
+    p.add_argument("--scale", type=float, default=0.0)
+    p.add_argument("--max-tokens", type=int, default=128)
+    p.add_argument("--out", default="runs/intervention.json")
     p = commands.add_parser("gradient", help="Backpropagate causal LM loss into layer states")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--prompt", required=True)
@@ -56,6 +71,29 @@ def main(argv: list[str] | None = None):
     elif args.command == "demo":
         from .capture import demo_capture
         print("Synthetic capture:", demo_capture(args.out))
+    elif args.command == "batch":
+        from .capture import capture_activations
+        from .model import load_model
+        prompts = [p.strip() for p in Path(args.prompts_file).read_text().splitlines() if p.strip()]
+        if not prompts:
+            raise SystemExit("Empty prompt file")
+        model, tokenizer = load_model(args.model)
+        for i, prompt in enumerate(prompts):
+            dest = Path(args.out_dir) / f"prompt_{i:04d}.npz"
+            mods = tuple(x.strip() for x in args.modules.split(",") if x.strip())
+            print(f"[{i+1}/{len(prompts)}]", capture_activations(
+                model, tokenizer, prompt, str(dest), args.max_tokens, mods
+            ))
+    elif args.command == "intervene":
+        from .model import load_model
+        from .intervention import run_intervention
+        model, tokenizer = load_model(args.model)
+        result = run_intervention(model, tokenizer, args.prompt, args.layer,
+                                  args.module, args.scale, args.max_tokens, args.all)
+        target = Path(args.out)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+        print("Saved:", target)
     elif args.command in {"capture", "gradient"}:
         from .model import load_model
         from .capture import capture_activations, capture_gradients

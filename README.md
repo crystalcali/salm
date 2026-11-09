@@ -28,7 +28,7 @@ python -m salm.cli capture --model LiquidAI/LFM3-1.7B-Base \
   --prompt "Solve x**2 - 5*x + 6 = 0 using Python." --out runs/equations.npz \
   --max-tokens 192 --modules ffn,operator
 python -m salm.cli gradient --prompt "Find the roots of x**2-5*x+6." --out runs/gradients.json
-python -m salm.cli dashboard --host 0.0.0.0 --port 8501
+python -m salm.cli dashboard --host 127.0.0.1 --port 8501
 ```
 
 From a workstation connected to Spark by SSH:
@@ -49,6 +49,17 @@ python -m salm.cli probe --input runs --source 7 --target 11 --epochs 100 \
 
 Depth probes are **layer-to-layer distillation diagnostics**, *not* a validated JEPA world model. Training and validation are split by capture file to avoid leaking tokens from the same prompt.
 
+Batch capture and causal ablation (load the model once for a prompt file, then analyze module influence):
+
+```bash
+printf '%s\n' 'Solve x**2-5*x+6=0' 'Find a Newton iteration for cos(x)-x=0' 'Write a Python bisection solver' > prompts.txt
+python -m salm.cli batch --prompts-file prompts.txt --out-dir runs --max-tokens 128
+python -m salm.cli intervene --all --module ffn --scale 0 --prompt "Solve x**2-5*x+6=0" --out runs/ffn_sweep.json
+python -m salm.cli probe --input runs --source 7 --target 11 --epochs 100
+```
+
+The intervention compares the original next-token distribution with the distribution when a chosen module output is multiplied by a scalar. Large KL indicates sensitivity, **not proof of causal importance for solving a full task**. It never changes stored weights.
+
 ## What the dashboard shows
 
 - **Architecture:** 13 convolution, 5 sliding-window attention and 6 full-attention blocks; parameter and KV-cache estimates.
@@ -63,6 +74,6 @@ Capture files use compressed NumPy NPZ with JSON metadata, no Python pickle. Cap
 
 Architecture defaults match the [official LFM3-1.7B-Base config](https://huggingface.co/LiquidAI/LFM3-1.7B-Base/blob/main/config.json). The model itself is under Liquid AI's **LFM Open License v1.0**; check its license before redistribution or deployment. This repo contains only our research code.
 
-The hooks target the Hugging Face LFM3 implementation, not Ollama's llama.cpp runner. Captures require a PyTorch Transformers checkpoint. GPU profiling, actual attention weight matrices, causal interventions, GNN/JEPA fine-tuning and full-context streaming compression are future experiments; the current package does not claim to implement them.
+The hooks target the Hugging Face LFM3 implementation, not Ollama's llama.cpp runner. Captures require a PyTorch Transformers checkpoint. GPU profiling, actual attention weight matrices, GNN/JEPA fine-tuning and full-context streaming compression are future experiments; the current package does not claim to implement them.
 
 See [research notes](docs/architecture.md), [contribution guidance](AGENTS.md), and the [official model card](https://huggingface.co/LiquidAI/LFM3-1.7B-Base).
