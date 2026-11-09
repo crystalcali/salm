@@ -20,6 +20,8 @@ lab = [
   "streamlit>=1.40",
   "plotly>=5.24",
   "pandas>=2.1",
+  "peft>=0.16",
+  "datasets>=3.4",
 ]
 dev = ["pytest>=8", "ruff>=0.7"]
 

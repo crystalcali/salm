@@ -67,6 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--epochs", type=int, default=100)
     p.add_argument("--width", type=int, default=256)
     p.add_argument("--out", default="runs/depth_probe.json")
+    p = commands.add_parser("trace-prepare", help="Prepare verified trajectories for JEPA")
+    p.add_argument("--source", choices=["arithmetic", "openr1"], default="arithmetic")
+    p.add_argument("--train", default="runs/trace_data/train.jsonl")
+    p.add_argument("--val", default="runs/trace_data/val.jsonl")
+    p.add_argument("--tasks", type=int, default=128)
+    p.add_argument("--val-tasks", type=int, default=100)
+    p.add_argument("--seed", type=int, default=42)
+    p = commands.add_parser("trace-train", help="Train JEPA + SIGReg without EMA, or SFT control")
+    p.add_argument("--config", required=True)
+    p.add_argument("--out", default=None)
+    p.add_argument("--resume", default=None)
     p = commands.add_parser("dashboard", help="Launch local Streamlit visualization")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8501)
@@ -158,6 +169,22 @@ def main(argv: list[str] | None = None):
         result = train_depth_probe(args.input, args.source, args.target,
                                    args.out, args.epochs, args.width)
         print(json.dumps(result, indent=2))
+    elif args.command == "trace-prepare":
+        from .trace_jepa.prepare import prepare_arithmetic, prepare_openr1
+        if args.source == "arithmetic":
+            report = prepare_arithmetic(args.train, args.val, tasks=args.tasks, seed=args.seed)
+        else:
+            report = prepare_openr1(args.train, args.val, max_train=args.tasks,
+                                    max_val=args.val_tasks, seed=args.seed)
+        print(json.dumps(report, indent=2))
+    elif args.command == "trace-train":
+        from .trace_jepa.engine import train
+        cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
+        if args.out is not None:
+            cfg["out"] = args.out
+        if args.resume is not None:
+            cfg["resume"] = args.resume
+        print(json.dumps(train(cfg), indent=2, ensure_ascii=False))
     elif args.command == "dashboard":
         app = Path(__file__).with_name("app.py")
         command = [

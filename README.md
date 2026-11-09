@@ -112,3 +112,26 @@ python -m salm.cli inspect-file --path runs/newton.npz
 ```
 
 Look for `kind: activation_capture`, `hidden_shape: [25, T, 2048]` and the original `prompt`. If the app says `SYNTHETIC DEMO`, switch the sidebar Capture selector to `newton.npz`; its sample shape is `[25, 48, 64]`. Use a full browser refresh or restart Streamlit after pulling updates.
+
+## Trace-JEPA + SIGReg without EMA
+
+One experimental JEPA method: shared-weight causal prefix-to-suffix prediction with
+SIGReg regularization on both view projections. **No EMA and no stop-gradient.**
+Original LFM3 blocks are preserved; there is no compression. Standard SFT is
+provided only as a control. See docs/trace-jepa.md.
+
+Commands on DGX Spark:
+
+    git pull --ff-only
+    pip install peft datasets
+    python -m salm.cli trace-prepare --source arithmetic --tasks 128
+    python -m salm.cli trace-train --config configs/trace_jepa_sigreg.json
+    python -m salm.cli trace-train --config configs/sft_control.json
+    python -m salm.cli dashboard
+
+Verified public math corpus (requires datasets and HF access):
+
+    python -m salm.cli trace-prepare --source openr1 --tasks 1000 --val-tasks 100
+
+Data provenance and task-level evaluation are essential. The arithmetic corpus
+is smoke-only. OpenR1 math_verify validates final answers, not each trace step.

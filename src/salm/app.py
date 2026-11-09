@@ -54,8 +54,9 @@ st.sidebar.caption(f"Source kind: {meta.get('kind','unknown')}")
 st.sidebar.metric("Captured tokens", n_tokens)
 st.sidebar.metric("Layer states", num_layers + 1)
 st.sidebar.caption("All comparisons use the same token positions within this capture.")
-t0, t1, t2, t3, t4 = st.tabs([
-    "Architecture", "Layer dynamics", "Token geometry", "FFN / operator", "Gradients & probes",
+t0, t1, t2, t3, t4, t5 = st.tabs([
+    "Architecture", "Layer dynamics", "Token geometry", "FFN / operator",
+    "Gradients & probes", "Trace-JEPA / SIGReg",
 ])
 
 
@@ -308,3 +309,29 @@ with t4:
                             aspect="auto", title="Where do individual prompts disagree?"))
     else:
         st.info("Use 'salm intervene-corpus --prompts-file examples/probe_prompts.txt' to compare layers over multiple inputs.")
+
+with t5:
+    st.subheader("Trace-JEPA + SIGReg (no EMA)")
+    st.caption("Displays saved experiments; this page does not launch GPU training.")
+    base = Path(st.text_input("Training runs directory", value="runs"))
+    histories = sorted(base.glob("**/history.jsonl")) if base.is_dir() else []
+    if not histories:
+        st.info("Train with: python -m salm.cli trace-train --config configs/trace_jepa_sigreg.json")
+    else:
+        path = st.selectbox("Experiment history", histories, format_func=lambda p: str(p.parent))
+        items = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
+        frame = pd.DataFrame(items)
+        cfgpath = path.parent / "config.json"
+        if cfgpath.is_file():
+            config = json.loads(cfgpath.read_text())
+            st.caption(f"mode={config.get('mode')} | layers={config.get('layers')} | no EMA")
+        st.metric("Completed optimizer steps", len(frame))
+        if len(frame):
+            losses = [k for k in ("sft", "jepa", "pred", "sigreg", "val_nll") if k in frame.columns]
+            chart(px.line(frame, x="step", y=losses, title="Observed training and validation losses"))
+            stats = [k for k in ("latent_var", "grad_norm", "cuda_peak_gib") if k in frame.columns]
+            if stats:
+                chart(px.line(frame, x="step", y=stats,
+                              title="Latent variance, gradients and memory"))
+            st.dataframe(frame, use_container_width=True)
+        st.warning("JEPA loss reduction alone does not prove better reasoning. Evaluate external tasks.")
