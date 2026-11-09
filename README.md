@@ -70,6 +70,16 @@ python -m salm.cli intervene --all --module ffn --scale 0 --prompt "Solve x**2-5
 python -m salm.cli probe --input runs --source 7 --target 11 --epochs 100
 ```
 
+For more reliable conclusions than last-token KL, evaluate a corpus across next-token positions:
+
+```bash
+python -m salm.cli intervene-corpus --prompts-file examples/probe_prompts.txt \
+  --module ffn --scale 0 --max-tokens 256 --skip-prefix 8 \
+  --out runs/corpus_ffn_ablation.json
+```
+
+The resulting Streamlit "Corpus-wide module interventions" charts show position-averaged KL, observed-text next-token NLL change and top-1 change rate. This is not an accuracy benchmark: prompts are input text, not verified task completions.
+
 The intervention compares the original next-token distribution with the distribution when a chosen module output is multiplied by a scalar. Large KL indicates sensitivity, **not proof of causal importance for solving a full task**. It never changes stored weights.
 
 ## What the dashboard shows

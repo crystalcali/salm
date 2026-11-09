@@ -44,6 +44,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--scale", type=float, default=0.0)
     p.add_argument("--max-tokens", type=int, default=128)
     p.add_argument("--out", default="runs/intervention.json")
+    p = commands.add_parser("intervene-corpus", help="Token-wise KL/NLL across multiple prompts")
+    p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--prompts-file", required=True, help="One prompt per line")
+    p.add_argument("--module", choices=["ffn", "operator"], default="ffn")
+    p.add_argument("--scale", type=float, default=0.0)
+    p.add_argument("--max-tokens", type=int, default=256)
+    p.add_argument("--skip-prefix", type=int, default=8)
+    p.add_argument("--layers", default="", help="Comma-separated 0-based block indices; empty = all")
+    p.add_argument("--out", default="runs/corpus_ffn_ablation.json")
     p = commands.add_parser("gradient", help="Backpropagate causal LM loss into layer states")
     p.add_argument("--model", default=DEFAULT_MODEL)
     group = p.add_mutually_exclusive_group(required=True)
@@ -113,6 +122,22 @@ def main(argv: list[str] | None = None):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(result, indent=2, ensure_ascii=False))
         print("Saved:", target)
+    elif args.command == "intervene-corpus":
+        from .model import load_model
+        from .corpus_intervention import run_corpus_intervention
+        prompts = [line.strip() for line in Path(args.prompts_file).read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
+        if not prompts:
+            raise SystemExit("No prompts in --prompts-file")
+        layers = [int(x.strip()) for x in args.layers.split(",") if x.strip()] if args.layers else None
+        model, tokenizer = load_model(args.model)
+        report = run_corpus_intervention(model, tokenizer, prompts, which=args.module,
+                                         scale=args.scale, max_tokens=args.max_tokens,
+                                         skip_prefix=args.skip_prefix, selected_layers=layers)
+        output = Path(args.out)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+        print("Saved:", output)
+        print("Prompts:", report["prompts_scored"], "positions:", report["rows"][0]["scored_positions"])
     elif args.command in {"capture", "gradient"}:
         prompt_text = Path(args.prompt_file).read_text(encoding="utf-8") if args.prompt_file else args.prompt
         if not prompt_text.strip():

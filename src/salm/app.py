@@ -272,3 +272,39 @@ with t4:
         st.dataframe(rows, use_container_width=True)
     else:
         st.info("Run 'salm intervene --all --module ffn --scale 0' to find sensitive blocks.")
+
+    corpus_files = []
+    for f in sorted(folder.glob("*.json")):
+        try:
+            obj = json.loads(f.read_text())
+        except (ValueError, OSError):
+            continue
+        if obj.get("experiment") == "corpus_module_ablation":
+            corpus_files.append((f, obj))
+    if corpus_files:
+        st.divider()
+        st.subheader("Corpus-wide module interventions")
+        selection = st.selectbox("Corpus intervention report", corpus_files,
+                                 format_func=lambda x: x[0].name)
+        result = selection[1]
+        st.caption("Scores every next-token prediction in the supplied inputs, excluding the chosen prefix. Negative NLL delta means the intervened model assigned more probability to the observed text; it does NOT guarantee better task solving.")
+        st.write("Prompts:", result["prompts_scored"], "| Module:", result["module"], "| Scale:", result["scale"])
+        table = pd.DataFrame(result["rows"])
+        chart(px.bar(table, x="layer", y="kl_base_to_modified", color="type",
+                     title="Average KL(base || modified), across all scored positions"))
+        chart(px.bar(table, x="layer", y="nll_delta", color="type",
+                     title="Change of next-token NLL on supplied corpus (modified - base)"))
+        chart(px.line(table, x="layer", y="top1_change_rate",
+                      title="Fraction of positions where the most probable token changes"))
+        st.dataframe(table, use_container_width=True)
+        per_prompt_rows = []
+        for entry in result.get("per_prompt", []):
+            for row in entry.get("rows", []):
+                per_prompt_rows.append({"prompt_index": entry["prompt_index"], **row})
+        if per_prompt_rows:
+            by_prompt = pd.DataFrame(per_prompt_rows)
+            chart(px.imshow(by_prompt.pivot(index="layer", columns="prompt_index",
+                                             values="kl_base_to_modified"),
+                            aspect="auto", title="Where do individual prompts disagree?"))
+    else:
+        st.info("Use 'salm intervene-corpus --prompts-file examples/probe_prompts.txt' to compare layers over multiple inputs.")
