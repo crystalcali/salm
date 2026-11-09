@@ -17,6 +17,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--offline", action="store_true", help="No HF request")
     p.add_argument("--model", default=DEFAULT_MODEL)
     commands.add_parser("doctor", help="Check Python.h, compiler, PyTorch, CUDA and Triton before GPU capture")
+    p = commands.add_parser("inspect-file", help="Verify actual capture kind, shape and prompt")
+    p.add_argument("--path", required=True)
     p = commands.add_parser("demo", help="Generate labeled synthetic capture, no model download")
     p.add_argument("--out", default="runs/demo.npz")
     p = commands.add_parser("capture", help="Capture LFM3 activations via forward hooks")
@@ -78,6 +80,9 @@ def main(argv: list[str] | None = None):
             raise SystemExit(2)
         if result["torch_cuda_available"] is False:
             print("\nWARNING: PyTorch does not detect CUDA; check the ARM64 GPU build.")
+    elif args.command == "inspect-file":
+        from .capture_info import inspect_capture
+        print(json.dumps(inspect_capture(args.path), indent=2, ensure_ascii=False))
     elif args.command == "demo":
         from .capture import demo_capture
         print("Synthetic capture:", demo_capture(args.out))

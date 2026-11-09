@@ -26,6 +26,7 @@ pip install -e ".[lab]"
 python -m salm.cli inspect --offline
 python -m salm.cli doctor
 python -m salm.cli demo --out runs/demo.npz
+# The dashboard prioritizes real captures over synthetic demo files.
 python -m salm.cli dashboard
 ```
 
@@ -85,3 +86,14 @@ Architecture defaults match the [official LFM3-1.7B-Base config](https://hugging
 The hooks target the Hugging Face LFM3 implementation, not Ollama's llama.cpp runner. Captures require a PyTorch Transformers checkpoint. GPU profiling, actual attention weight matrices, GNN/JEPA fine-tuning and full-context streaming compression are future experiments; the current package does not claim to implement them.
 
 See [research notes](docs/architecture.md), [contribution guidance](AGENTS.md), and the [official model card](https://huggingface.co/LiquidAI/LFM3-1.7B-Base).
+
+
+## Confirm you are viewing real activations
+
+A successful `capture` writes `runs/newton.npz` but **does not automatically change an existing Streamlit selection**. The app now defaults to the most recently modified real capture, instead of `demo.npz`, and clearly labels the current file and tensor dimensions.
+
+```bash
+python -m salm.cli inspect-file --path runs/newton.npz
+```
+
+Look for `kind: activation_capture`, `hidden_shape: [25, T, 2048]` and the original `prompt`. If the app says `SYNTHETIC DEMO`, switch the sidebar Capture selector to `newton.npz`; its sample shape is `[25, 48, 64]`. Use a full browser refresh or restart Streamlit after pulling updates.

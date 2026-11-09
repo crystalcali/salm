@@ -31,7 +31,13 @@ files = sorted(folder.glob("*.npz")) if folder.is_dir() else []
 if not files:
     st.info("No .npz captures yet. Run: python -m salm.cli demo --out runs/demo.npz")
     st.stop()
-selected = st.sidebar.selectbox("Capture", files, format_func=lambda x: x.name)
+from salm.capture_info import choose_capture
+default_index = choose_capture(files)
+selected = st.sidebar.selectbox(
+    "Capture", files, index=default_index,
+    format_func=lambda x: x.name + (" [demo]" if x.stem == "demo" else ""),
+)
+st.sidebar.caption(f"Selected file: `{selected.name}`")
 data = open_capture(str(selected.resolve()), selected.stat().st_mtime)
 meta = json.loads(str(data["metadata"].item()))
 hidden = data["hidden"].astype(np.float32)
@@ -39,7 +45,12 @@ token_strings = data["token_strings"].astype(str).tolist()
 layer_types = meta.get("architecture", {}).get("layer_types", LAYER_TYPES)
 num_layers, n_tokens, dim = hidden.shape[0] - 1, hidden.shape[1], hidden.shape[2]
 if meta.get("kind") == "synthetic_demo":
-    st.warning("SYNTHETIC DEMO — these are not LFM3 activations or performance measurements.")
+    st.warning("SYNTHETIC DEMO — this is not an LFM3 capture. Select newton.npz in the sidebar.")
+else:
+    st.success(f"REAL CAPTURE: {selected.name} | model: {meta.get('model', 'unknown')} | "
+               f"{n_tokens} tokens × {dim} hidden dimensions")
+st.sidebar.metric("Hidden dimensions", dim)
+st.sidebar.caption(f"Source kind: {meta.get('kind','unknown')}")
 st.sidebar.metric("Captured tokens", n_tokens)
 st.sidebar.metric("Layer states", num_layers + 1)
 st.sidebar.caption("All comparisons use the same token positions within this capture.")
