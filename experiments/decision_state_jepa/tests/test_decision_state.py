@@ -221,7 +221,7 @@ def test_harbor_tool_parser_and_command_mapping():
 def test_harbor_reproducible_pair_and_no_benchmark_train(tmp_path):
     from decision_state.benchmark import command_for_benchmark,manifest
     c=command_for_benchmark(limit=5,trials=1)
-    assert '--agent-import-path' in c and '-l' in c
+    assert '--agent' in c and '-l' in c
     assert 'terminal-bench/terminal-bench-2-1' in c
     assert '--n-concurrent' in c
     assert '--repo' in command_for_benchmark(limit=None,trials=3,use_hf_repo=True)

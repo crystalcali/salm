@@ -48,7 +48,7 @@ def command_for_benchmark(*, limit: int | None = 5, trials: int = 1,
         cmd.extend(['--repo',HUGGINGFACE_REPO])
     else:
         cmd.extend(['-d',HARBOR_DATASET])
-    cmd.extend(['--agent-import-path','decision_state.harbor_agent:SALMTerminalAgent',
+    cmd.extend(['--agent','decision_state.harbor_agent:SALMTerminalAgent',
                 '-k',str(trials),'--n-concurrent','1'])
     if limit is not None:
         cmd.extend(['-l',str(limit)])
@@ -61,8 +61,24 @@ def run_benchmark(checkpoint: str, *, limit: int | None = 5,
         raise ValueError('trials and limit must be positive')
     ckpt=Path(checkpoint).expanduser().resolve()
     record=manifest(ckpt)
-    if shutil.which('harbor') is None:
-        raise RuntimeError('Harbor CLI not installed. Install with: uv tool install harbor')
+    binary = shutil.which('harbor')
+    if binary is None:
+        raise RuntimeError('Harbor not installed in the model venv. With .venv activated: uv pip install harbor')
+    # uv tool install creates an isolated Python environment that usually lacks
+    # the existing GB10 CUDA torch installation. Fail early and suggest the
+    # supported same-interpreter setup, rather than corrupting benchmark runs.
+    try:
+        with open(binary,'rb') as script:
+            shebang=script.readline().decode('utf-8','replace').strip()
+    except OSError:
+        shebang=''
+    if shebang.startswith('#!'):
+        candidate=shebang[2:].split()[0]
+        if candidate.endswith(('python','python3','python3.12','python3.13','python3.14')):
+            if Path(candidate).resolve()!=Path(sys.executable).resolve():
+                raise RuntimeError('Harbor CLI is running from a different Python interpreter. '
+                    'Activate SALM .venv and install Harbor there: uv pip install harbor; '
+                    'check: python -c "import torch, harbor"')
     jobs=Path.home()/'.harbor'/'jobs'
     before={str(p.resolve()) for p in jobs.iterdir() if p.is_dir()} if jobs.exists() else set()
     cmd=command_for_benchmark(limit=limit,trials=trials,use_hf_repo=use_hf_repo)

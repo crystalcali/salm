@@ -97,10 +97,12 @@ For 12K, use `configs/sft_12k.json` and `configs/decision_jepa_12k.json`, with *
 
 Source supplied by user: [Hugging Face `harborframework/terminal-bench-2.1`](https://huggingface.co/datasets/harborframework/terminal-bench-2.1), mirroring [the official 89-task Harbor Terminal-Bench 2.1](https://hub.harborframework.com/datasets/terminal-bench/terminal-bench-2-1). This code uses **Harbor's task containers and built-in verifier**, not teacher-forced NLL, manual judging, or extracted test answers.
 
-Install Harbor CLI separately so the working model environment stays intact:
+Install Harbor **inside the activated CUDA model venv** (the custom Harbor agent imports this environment's GPU-enabled PyTorch). Do **not** use `uv tool install harbor` here: isolated tool environments do not automatically have access to the model venv's `torch`:
 
 ```bash
-uv tool install harbor
+uv pip install harbor
+python -c 'import torch, harbor; print(torch.cuda.is_available())'
+which harbor
 harbor --help
 docker info
 harbor datasets list
