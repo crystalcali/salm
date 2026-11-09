@@ -47,6 +47,8 @@ def capture_activations(model, tokenizer, prompt: str, out: str,
         "hidden": [None] * (len(layers) + 1),
         "ffn": [None] * len(layers),
         "operator": [None] * len(layers),
+        "operator_effective": [None] * len(layers),
+        "ffn_effective": [None] * len(layers),
     }
     hooks = []
     try:
@@ -61,6 +63,15 @@ def capture_activations(model, tokenizer, prompt: str, out: str,
                 def ffn_hook(module, args, output, i=idx):
                     data["ffn"][i] = _cpu(_tensor(output), max_tokens)
                 hooks.append(layer.feed_forward.register_forward_hook(ffn_hook))
+                post_ffn = getattr(layer, "post_ffn_norm", None)
+                if post_ffn is not None:
+                    def ffn_effective_hook(module, args, output, i=idx):
+                        data["ffn_effective"][i] = _cpu(_tensor(output), max_tokens)
+                    hooks.append(post_ffn.register_forward_hook(ffn_effective_hook))
+                else:
+                    def ffn_effective_fallback(module, args, output, i=idx):
+                        data["ffn_effective"][i] = _cpu(_tensor(output), max_tokens)
+                    hooks.append(layer.feed_forward.register_forward_hook(ffn_effective_fallback))
             if "operator" in modules:
                 operator = getattr(layer, "self_attn", None)
                 if operator is None:
@@ -70,6 +81,15 @@ def capture_activations(model, tokenizer, prompt: str, out: str,
                 def op_hook(module, args, output, i=idx):
                     data["operator"][i] = _cpu(_tensor(output), max_tokens)
                 hooks.append(operator.register_forward_hook(op_hook))
+                post_op = getattr(layer, "post_operator_norm", None)
+                if post_op is not None:
+                    def operator_effective_hook(module, args, output, i=idx):
+                        data["operator_effective"][i] = _cpu(_tensor(output), max_tokens)
+                    hooks.append(post_op.register_forward_hook(operator_effective_hook))
+                else:
+                    def operator_effective_fallback(module, args, output, i=idx):
+                        data["operator_effective"][i] = _cpu(_tensor(output), max_tokens)
+                    hooks.append(operator.register_forward_hook(operator_effective_fallback))
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=max_tokens)
         inputs = {k: v.to(next(model.parameters()).device) for k, v in inputs.items()}
         with torch.inference_mode():
@@ -85,7 +105,8 @@ def capture_activations(model, tokenizer, prompt: str, out: str,
             "architecture": cfg,
             "captured_modules": list(modules),
             "tokens": len(token_ids),
-            "format_version": 1,
+            "format_version": 2,
+            "residual_contributions": "post_sandwich_norm_if_present",
         }
         payload = {
             "hidden": np.stack(data["hidden"]),
@@ -94,9 +115,10 @@ def capture_activations(model, tokenizer, prompt: str, out: str,
             "metadata": np.array(json.dumps(metadata, ensure_ascii=False)),
         }
         for name in modules:
-            if any(x is None for x in data[name]):
-                raise RuntimeError("Module hook did not capture all " + name + " outputs")
-            payload[name] = np.stack(data[name])
+            for key in (name, name + "_effective"):
+                if any(x is None for x in data[key]):
+                    raise RuntimeError("Module hook did not capture all " + key + " outputs")
+                payload[key] = np.stack(data[key])
         return _save(out, payload)
     finally:
         for hook in hooks:
@@ -186,9 +208,11 @@ def demo_capture(out: str = "runs/demo.npz", seed: int = 4) -> Path:
         "architecture": {**architecture(), "hidden_size": d},
         "captured_modules": ["ffn", "operator"],
         "tokens": t,
-        "format_version": 1,
+        "format_version": 2,
     }
     return _save(out, {
+        "operator_effective": np.asarray(operators, dtype=np.float16),
+        "ffn_effective": np.asarray(ffns, dtype=np.float16),
         "hidden": np.asarray(states, dtype=np.float16),
         "ffn": np.asarray(ffns, dtype=np.float16),
         "operator": np.asarray(operators, dtype=np.float16),

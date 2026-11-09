@@ -116,23 +116,45 @@ with t2:
         source = st.slider("State A (0 = embedding)", 0, num_layers, min(8, num_layers))
     with right:
         target = st.slider("State B (0 = embedding)", 0, num_layers, min(16, num_layers))
-    a, b = hidden[source], hidden[target]
+    a_all, b_all = hidden[source], hidden[target]
+    if n_tokens < 32:
+        st.warning(f"Only {n_tokens} tokens: effective rank is bounded by {n_tokens-1}, and CKA may be dominated by outliers. Use >=128 tokens for exploratory comparisons.")
+    def energy_share(x):
+        norms2 = np.sum(x.astype(np.float64)**2, axis=-1)
+        return float(norms2[0]/max(norms2.sum(), 1e-12))
+    c0, c1 = st.columns(2)
+    c0.metric("First-token share of total squared L2 norm · A", f"{energy_share(a_all):.1%}")
+    c1.metric("First-token share of total squared L2 norm · B", f"{energy_share(b_all):.1%}")
+    omit = st.checkbox("Exclude first token from CKA, effective rank and similarity map", value=False)
+    unit = st.checkbox("L2-normalize every token before CKA and rank", value=False)
+    offset = 1 if omit else 0
+    a, b = a_all[offset:].copy(), b_all[offset:].copy()
+    if unit:
+        a /= np.maximum(np.linalg.norm(a, axis=-1, keepdims=True), 1e-12)
+        b /= np.maximum(np.linalg.norm(b, axis=-1, keepdims=True), 1e-12)
     c1, c2, c3 = st.columns(3)
     c1.metric("Centered linear CKA", f"{centered_cka(a,b):.4f}")
     c2.metric("Effective rank A", f"{effective_rank(a):.1f}")
     c3.metric("Effective rank B", f"{effective_rank(b):.1f}")
+    st.caption(f"Geometric analysis: {len(a)} tokens; centered rank <= {max(0,len(a)-1)}. Excluding prefix removes absolute token 0, not any special model-specific token.")
     labels = [f"{i}: {v[:13]}" for i, v in enumerate(token_strings)]
+    if n_tokens >= 2 and st.button("Compute cross-layer CKA heatmap (sample up to 96 tokens)"):
+        sampled = hidden[:, offset:offset+min(96, len(a)), :].copy()
+        if unit:
+            sampled /= np.maximum(np.linalg.norm(sampled, axis=-1, keepdims=True), 1e-12)
+        gram = np.array([[centered_cka(sampled[i], sampled[j]) for j in range(num_layers+1)] for i in range(num_layers+1)])
+        chart(px.imshow(gram, zmin=0, zmax=1, aspect="auto", title="Centered linear CKA by depth (0=embedding)"))
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=list(range(n_tokens)), y=token_norms(a), name=f"State {source}"))
     fig.add_trace(go.Scatter(x=list(range(n_tokens)), y=token_norms(b), name=f"State {target}"))
     fig.update_layout(title="Per-token hidden vector norms", xaxis_title="Token position")
     chart(fig)
-    max_display = min(n_tokens, 160)
+    max_display = min(len(a), 160)
     show = st.slider("Tokens shown in similarity map", 2, max_display, min(64, max_display))
     map_layer = st.selectbox("State for token-to-token similarity", [source, target],
                               format_func=lambda x: f"State {x}")
-    matrix = token_similarity(hidden[map_layer, :show])
-    chart(px.imshow(matrix, x=labels[:show], y=labels[:show], zmin=-1, zmax=1,
+    matrix = token_similarity(hidden[map_layer, offset:offset+show])
+    chart(px.imshow(matrix, x=labels[offset:offset+show], y=labels[offset:offset+show], zmin=-1, zmax=1,
                     title="Cosine similarity of token representations"))
     st.caption("CKA is invariant to orthogonal feature rotations; high CKA does not establish semantic equivalence.")
 
@@ -151,14 +173,25 @@ with t3:
         if key in data:
             part = data[key][layer].astype(np.float64)
             summary[key + "_raw_output_rms"] = float(np.sqrt(np.mean(part ** 2)))
+        if key + "_effective" in data:
+            part = data[key + "_effective"][layer].astype(np.float64)
+            summary[key + "_residual_contribution_rms"] = float(np.sqrt(np.mean(part ** 2)))
+    if all(k in data for k in ("operator_effective", "ffn_effective")):
+        reconstructed = data["operator_effective"][layer].astype(np.float64) + data["ffn_effective"][layer].astype(np.float64)
+        delta = after.astype(np.float64) - before.astype(np.float64)
+        summary["residual_reconstruction_relative_error"] = float(np.linalg.norm(reconstructed-delta)/max(np.linalg.norm(delta),1e-12))
+        st.caption("Effective signals are captured AFTER post norms, immediately before residual addition. Minor reconstruction errors are expected from FP16 capture.")
+    else:
+        st.warning("Old capture: FFN and operator are RAW, not normalized residual contributions. Re-capture to compare their actual effects.")
     st.json(summary)
-    st.caption("Operator/FFN hooks are captured BEFORE optional post-operator/post-FFN norms. Their sum need not equal the full block delta.")
-    frame = pd.DataFrame({"token": np.arange(n_tokens), "block_delta": token_norms(after - before)})
+    frame = pd.DataFrame({"token": np.arange(n_tokens), "full_block_delta": token_norms(after - before)})
+    use_effective = all(k + "_effective" in data for k in ("operator", "ffn"))
     for key in ("operator", "ffn"):
-        if key in data:
-            frame[key] = token_norms(data[key][layer])
+        name = key + "_effective" if use_effective else key
+        if name in data:
+            frame[key + ("_residual" if use_effective else "_raw")] = token_norms(data[name][layer])
     chart(px.line(frame, x="token", y=[x for x in frame.columns if x != "token"],
-                  title="Per-token signal amplitudes"))
+                  title=("Per-token residual contributions" if use_effective else "Raw module outputs (not comparable to residual delta)")))
     if not any(key in data for key in ("operator", "ffn")):
         st.info("Re-capture with --modules ffn,operator for internal module signals.")
 

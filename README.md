@@ -37,6 +37,9 @@ python -m salm.cli capture --model LiquidAI/LFM3-1.7B-Base \
   --prompt "Solve x**2 - 5*x + 6 = 0 using Python." --out runs/equations.npz \
   --max-tokens 192 --modules ffn,operator
 python -m salm.cli gradient --prompt "Find the roots of x**2-5*x+6." --out runs/gradients.json
+# Longer experiments: --prompt-file keeps multi-line context intact.
+python -m salm.cli capture --prompt-file examples/newton_long.txt \
+  --modules ffn,operator --max-tokens 384 --out runs/newton_long.npz
 python -m salm.cli dashboard --host 127.0.0.1 --port 8501
 ```
 
@@ -73,7 +76,8 @@ The intervention compares the original next-token distribution with the distribu
 
 - **Architecture:** 13 convolution, 5 sliding-window attention and 6 full-attention blocks; parameter and KV-cache estimates.
 - **Activation geometry:** per-token norms, token×token similarity, effective rank, cross-layer centered-kernel alignment (CKA).
-- **Block behavior:** residual changes and operator/FFN output norms, comparing selected layers.
+- **Block behavior:** residual changes, raw signals and POST-normalization operator/FFN contributions (new captures). Old captures lack the normalized values.
+- **Short-context bias checks:** first-token energy share, excluding token 0, unit-normalized CKA, and depth-by-depth CKA matrix.
 - **Gradients:** layerwise gradient sensitivity for causal LM loss.
 - **Probes:** compare small depth predictors to mean and identity baselines.
 

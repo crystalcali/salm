@@ -23,7 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="runs/demo.npz")
     p = commands.add_parser("capture", help="Capture LFM3 activations via forward hooks")
     p.add_argument("--model", default=DEFAULT_MODEL)
-    p.add_argument("--prompt", required=True)
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--prompt", help="Text to capture")
+    group.add_argument("--prompt-file", help="Read multi-line UTF-8 prompt from a file")
     p.add_argument("--out", default="runs/capture.npz")
     p.add_argument("--max-tokens", type=int, default=256)
     p.add_argument("--modules", default="", help="Comma-separated: ffn,operator")
@@ -44,7 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="runs/intervention.json")
     p = commands.add_parser("gradient", help="Backpropagate causal LM loss into layer states")
     p.add_argument("--model", default=DEFAULT_MODEL)
-    p.add_argument("--prompt", required=True)
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--prompt", help="Text to evaluate")
+    group.add_argument("--prompt-file", help="Read multi-line UTF-8 prompt from a file")
     p.add_argument("--out", default="runs/gradients.json")
     p.add_argument("--max-tokens", type=int, default=128)
     p = commands.add_parser("probe", help="Supervised depth predictor from multiple capture files")
@@ -110,15 +114,18 @@ def main(argv: list[str] | None = None):
         target.write_text(json.dumps(result, indent=2, ensure_ascii=False))
         print("Saved:", target)
     elif args.command in {"capture", "gradient"}:
+        prompt_text = Path(args.prompt_file).read_text(encoding="utf-8") if args.prompt_file else args.prompt
+        if not prompt_text.strip():
+            raise SystemExit("Prompt must not be empty")
         from .model import load_model
         from .capture import capture_activations, capture_gradients
         model, tokenizer = load_model(args.model)
         if args.command == "capture":
             modules = tuple(x.strip() for x in args.modules.split(",") if x.strip())
-            path = capture_activations(model, tokenizer, args.prompt, args.out,
+            path = capture_activations(model, tokenizer, prompt_text, args.out,
                                        args.max_tokens, modules)
         else:
-            path = capture_gradients(model, tokenizer, args.prompt, args.out,
+            path = capture_gradients(model, tokenizer, prompt_text, args.out,
                                      args.max_tokens)
         print("Saved:", path)
     elif args.command == "probe":
