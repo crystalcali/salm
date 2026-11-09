@@ -3,7 +3,7 @@ import pytest
 
 from salm.metrics import (
     centered_cka, effective_rank, layer_rows, token_cosine, token_norms,
-    token_similarity,
+    token_similarity, residual_interference_rows,
 )
 
 
@@ -43,3 +43,22 @@ def test_layer_rows_with_identical_states():
 def test_cka_input_shape_validation():
     with pytest.raises(ValueError):
         centered_cka(np.zeros((3, 4)), np.zeros((4, 4)))
+
+
+def test_residual_interference_opposite_and_aligned():
+    operator = np.array([[[1., 0.], [0., 1.]], [[1., 0.], [0., 1.]]])
+    ffn = np.array([[[-1., 0.], [0., -1.]], [[1., 0.], [0., 1.]]])
+    rows = residual_interference_rows(operator, ffn, ["conv", "full_attention"])
+    assert len(rows) == 2
+    assert rows[0]["operator_ffn_cosine"] == pytest.approx(-1.0)
+    assert rows[0]["cancellation_index"] == pytest.approx(1.0)
+    assert rows[0]["negative_token_fraction"] == pytest.approx(1.0)
+    assert rows[1]["operator_ffn_cosine"] == pytest.approx(1.0)
+    assert rows[1]["cancellation_index"] == pytest.approx(0.0)
+
+
+def test_residual_interference_shape_checks():
+    with pytest.raises(ValueError):
+        residual_interference_rows(np.zeros((2, 2)), np.zeros((2, 2)))
+    with pytest.raises(ValueError):
+        residual_interference_rows(np.zeros((2, 2, 4)), np.zeros((2, 3, 4)))

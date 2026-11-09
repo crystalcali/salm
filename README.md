@@ -77,6 +77,7 @@ The intervention compares the original next-token distribution with the distribu
 - **Architecture:** 13 convolution, 5 sliding-window attention and 6 full-attention blocks; parameter and KV-cache estimates.
 - **Activation geometry:** per-token norms, token×token similarity, effective rank, cross-layer centered-kernel alignment (CKA).
 - **Block behavior:** residual changes, raw signals and POST-normalization operator/FFN contributions (new captures). Old captures lack the normalized values.
+- **Directional interference:** post-norm operator/FFN cosine and cancellation index by token and block, to investigate opposing residual updates without confusing them with functional redundancy.
 - **Short-context bias checks:** first-token energy share, excluding token 0, unit-normalized CKA, and depth-by-depth CKA matrix.
 - **Gradients:** layerwise gradient sensitivity for causal LM loss.
 - **Probes:** compare small depth predictors to mean and identity baselines.

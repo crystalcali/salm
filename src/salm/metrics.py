@@ -70,3 +70,36 @@ def layer_rows(hidden: np.ndarray, layer_types: list[str] | None = None) -> list
             "cosine": float(np.mean(token_cosine(before, after))),
         })
     return rows
+
+
+def residual_interference_rows(operator: np.ndarray, ffn: np.ndarray,
+                               layer_types: list[str] | None = None) -> list[dict]:
+    """Quantify directional alignment of POST-norm contributions.
+
+    Both arrays must be [layers, tokens, hidden]. This measures signal geometry,
+    not whether a layer improves language quality.
+    """
+    op, ff = _as_float(operator), _as_float(ffn)
+    if op.shape != ff.shape or op.ndim != 3:
+        raise ValueError("Expected matching [layers, tokens, hidden] tensors")
+    result = []
+    for i in range(len(op)):
+        a, b = op[i], ff[i]
+        an = np.linalg.norm(a)
+        bn = np.linalg.norm(b)
+        combined = np.linalg.norm(a + b)
+        denom = an * bn
+        cosine = float(np.sum(a*b) / denom) if denom > 1e-15 else 0.0
+        cosine = float(np.clip(cosine, -1.0, 1.0))
+        cancellation = 1.0 - combined / (an + bn) if an+bn > 1e-15 else 0.0
+        per_token = token_cosine(a, b)
+        valid = (token_norms(a) * token_norms(b)) > 1e-12
+        result.append({
+            "layer": i,
+            "type": layer_types[i] if layer_types and i < len(layer_types) else "unknown",
+            "operator_ffn_cosine": cosine,
+            "mean_token_cosine": float(per_token[valid].mean()) if valid.any() else 0.0,
+            "negative_token_fraction": float(np.mean(per_token[valid] < 0)) if valid.any() else 0.0,
+            "cancellation_index": float(np.clip(cancellation, 0.0, 1.0)),
+        })
+    return result

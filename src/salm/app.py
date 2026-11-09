@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from salm.config import LAYER_TYPES
-from salm.metrics import centered_cka, effective_rank, layer_rows, token_norms, token_similarity
+from salm.metrics import centered_cka, effective_rank, layer_rows, token_norms, token_similarity, token_cosine, residual_interference_rows
 
 st.set_page_config(page_title="SALM | LFM3 Research", layout="wide", page_icon="🧠")
 st.title("SALM · LFM3 Internal Explorer")
@@ -145,8 +145,8 @@ with t2:
         gram = np.array([[centered_cka(sampled[i], sampled[j]) for j in range(num_layers+1)] for i in range(num_layers+1)])
         chart(px.imshow(gram, zmin=0, zmax=1, aspect="auto", title="Centered linear CKA by depth (0=embedding)"))
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=list(range(n_tokens)), y=token_norms(a), name=f"State {source}"))
-    fig.add_trace(go.Scatter(x=list(range(n_tokens)), y=token_norms(b), name=f"State {target}"))
+    fig.add_trace(go.Scatter(x=list(range(offset, n_tokens)), y=token_norms(a), name=f"State {source}"))
+    fig.add_trace(go.Scatter(x=list(range(offset, n_tokens)), y=token_norms(b), name=f"State {target}"))
     fig.update_layout(title="Per-token hidden vector norms", xaxis_title="Token position")
     chart(fig)
     max_display = min(len(a), 160)
@@ -194,6 +194,33 @@ with t3:
                   title=("Per-token residual contributions" if use_effective else "Raw module outputs (not comparable to residual delta)")))
     if not any(key in data for key in ("operator", "ffn")):
         st.info("Re-capture with --modules ffn,operator for internal module signals.")
+    if use_effective:
+        st.divider()
+        st.subheader("How operator and FFN combine")
+        interference = residual_interference_rows(
+            data["operator_effective"], data["ffn_effective"], layer_types
+        )
+        df = pd.DataFrame(interference)
+        current = interference[layer]
+        met1, met2, met3 = st.columns(3)
+        met1.metric("Operator–FFN cosine (block)", f'{current["operator_ffn_cosine"]:.3f}')
+        met2.metric("Cancellation index (block)", f'{current["cancellation_index"]:.1%}')
+        met3.metric("Tokens with opposing directions", f'{current["negative_token_fraction"]:.1%}')
+        st.caption("Cosine below zero means opposing vector directions. Cancellation = 1 - ||op+ffn||/(||op||+||ffn||). These are geometric measurements, NOT estimates of unnecessary computation.")
+        chart(px.line(df, x="layer", y=["operator_ffn_cosine", "mean_token_cosine"],
+                      title="Alignment of post-norm operator and FFN contributions across depth"))
+        chart(px.bar(df, x="layer", y="cancellation_index", color="type",
+                     title="Cancellation index across all 24 blocks (0 = none)"))
+        token_alignment = token_cosine(
+            data["operator_effective"][layer], data["ffn_effective"][layer]
+        )
+        chart(px.line(
+            pd.DataFrame({"token": np.arange(n_tokens), "cosine": token_alignment}),
+            x="token", y="cosine", title=f"Per-token operator–FFN cosine in block {layer}"
+        ))
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("Run a new capture with --modules ffn,operator to unlock post-norm alignment diagnostics.")
 
 
 with t4:
