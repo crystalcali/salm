@@ -16,3 +16,15 @@ jobs:
       - run: python -m pytest -q
       - run: python -m salm.cli inspect --offline
       - run: python -m salm.cli demo --out /tmp/salm-demo.npz
+
+  trace-jepa-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -U pip
+      - run: python -m pip install -e . pytest
+      - run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pytest -q tests/test_trace_jepa.py tests/test_trace_engine.py

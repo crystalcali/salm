@@ -25,6 +25,7 @@ def test_verified_smoke_data_and_split(tmp_path):
 
 
 def test_causal_random_cut_no_leakage():
+    pytest.importorskip('torch')
     row = {
         "task_id": "t1", "prompt": "Solve 2+3",
         "steps": ["First identify the sum", "Then add the numbers"],
