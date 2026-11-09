@@ -75,7 +75,7 @@ def run_benchmark(checkpoint: str, *, limit: int | None = 5,
     if shebang.startswith('#!'):
         candidate=shebang[2:].split()[0]
         if candidate.endswith(('python','python3','python3.12','python3.13','python3.14')):
-            if Path(candidate).resolve()!=Path(sys.executable).resolve():
+            if Path(candidate).absolute().parent != Path(sys.executable).absolute().parent:
                 raise RuntimeError('Harbor CLI is running from a different Python interpreter. '
                     'Activate SALM .venv and install Harbor there: uv pip install harbor; '
                     'check: python -c "import torch, harbor"')
