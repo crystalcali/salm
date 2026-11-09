@@ -6,6 +6,13 @@ Research workbench for **LiquidAI/LFM3-1.7B-Base** on NVIDIA DGX Spark: inspect 
 
 ## Quick start (DGX Spark)
 
+Before the first GPU run on Ubuntu 24.04, install the interpreter development headers needed by Triton:
+
+```bash
+sudo apt update
+sudo apt install -y python3.12-dev build-essential
+```
+
 Use Python 3.12, a CUDA-enabled PyTorch build for **Linux aarch64 / GB10**, and a Transformers release supporting LFM3 (model config currently references 5.12.1). Check your local CUDA/PyTorch environment before installing another torch wheel.
 
 ```bash
@@ -17,6 +24,7 @@ pip install --upgrade pip
 # Install a compatible GPU PyTorch build first, if not already installed.
 pip install -e ".[lab]"
 python -m salm.cli inspect --offline
+python -m salm.cli doctor
 python -m salm.cli demo --out runs/demo.npz
 python -m salm.cli dashboard
 ```

@@ -16,6 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = commands.add_parser("inspect", help="Architecture facts and cache/parameter estimates")
     p.add_argument("--offline", action="store_true", help="No HF request")
     p.add_argument("--model", default=DEFAULT_MODEL)
+    commands.add_parser("doctor", help="Check Python.h, compiler, PyTorch, CUDA and Triton before GPU capture")
     p = commands.add_parser("demo", help="Generate labeled synthetic capture, no model download")
     p.add_argument("--out", default="runs/demo.npz")
     p = commands.add_parser("capture", help="Capture LFM3 activations via forward hooks")
@@ -68,6 +69,15 @@ def main(argv: list[str] | None = None):
             config = AutoConfig.from_pretrained(args.model, trust_remote_code=True)
             result = report(config=config)
         print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "doctor":
+        from .diagnostics import system_report
+        result = system_report()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        if result["triton_requires_python_headers"] and not result["python_h_exists"]:
+            print("\nFIX: sudo apt update && sudo apt install -y python3.12-dev build-essential")
+            raise SystemExit(2)
+        if result["torch_cuda_available"] is False:
+            print("\nWARNING: PyTorch does not detect CUDA; check the ARM64 GPU build.")
     elif args.command == "demo":
         from .capture import demo_capture
         print("Synthetic capture:", demo_capture(args.out))

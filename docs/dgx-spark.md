@@ -2,6 +2,19 @@
 
 The GPU is the GB10 Grace Blackwell with shared LPDDR memory. Its OS stack uses ARM64/aarch64 and NVIDIA CUDA; x86-only PyTorch wheels are not appropriate.
 
+## Triton Python.h failure
+
+If the first capture prints `triton/backends/nvidia/driver.c: fatal error: Python.h: No such file or directory`, the model has loaded but Triton's C helper cannot compile. This is a **host OS development-header problem**, not a model or CUDA kernel problem.
+
+```bash
+sudo apt update
+sudo apt install -y python3.12-dev build-essential
+ls -l /usr/include/python3.12/Python.h
+python -m salm.cli doctor
+```
+
+Do not reinstall PyTorch or re-download model weights for this error. The headers are installed at the OS level, not via pip in the virtual environment.
+
 ## Installation
 
 Use a clean **Python 3.12** environment:

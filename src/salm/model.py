@@ -18,6 +18,8 @@ def get_layers(model):
 
 def load_model(model_id: str = "LiquidAI/LFM3-1.7B-Base", attention_backend: str | None = None):
     import torch
+    from .diagnostics import require_triton_headers
+    require_triton_headers(cuda_available=torch.cuda.is_available())
     from transformers import AutoModelForCausalLM, AutoTokenizer
     dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
     opts = {
