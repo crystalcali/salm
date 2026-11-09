@@ -78,6 +78,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", required=True)
     p.add_argument("--out", default=None)
     p.add_argument("--resume", default=None)
+    p = commands.add_parser("trace-evaluate", help="Check generated answers on held-out trace tasks")
+    p.add_argument("--run", required=True, help="Training run directory")
+    p.add_argument("--data", required=True, help="Held-out JSONL with final_answer")
+    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--max-new-tokens", type=int, default=256)
+    p.add_argument("--out", default=None)
     p = commands.add_parser("dashboard", help="Launch local Streamlit visualization")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8501)
@@ -185,6 +191,11 @@ def main(argv: list[str] | None = None):
         if args.resume is not None:
             cfg["resume"] = args.resume
         print(json.dumps(train(cfg), indent=2, ensure_ascii=False))
+    elif args.command == "trace-evaluate":
+        from .trace_jepa.evaluate import evaluate_model
+        result = evaluate_model(args.run, args.data, limit=args.limit,
+                                max_new_tokens=args.max_new_tokens, out=args.out)
+        print(json.dumps({k: v for k,v in result.items() if k != "results"}, indent=2))
     elif args.command == "dashboard":
         app = Path(__file__).with_name("app.py")
         command = [

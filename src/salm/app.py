@@ -335,3 +335,14 @@ with t5:
                               title="Latent variance, gradients and memory"))
             st.dataframe(frame, use_container_width=True)
         st.warning("JEPA loss reduction alone does not prove better reasoning. Evaluate external tasks.")
+        evalfile = path.parent / "generation_eval.json"
+        if evalfile.is_file():
+            summary = json.loads(evalfile.read_text())
+            st.subheader("Held-out answer generation (simple exact match)")
+            c1,c2,c3 = st.columns(3)
+            c1.metric("Scored tasks", summary.get("scored_tasks", 0))
+            c2.metric("Exact match", f'{summary.get("exact_match",0):.1%}')
+            c3.metric("Missing final answer", f'{summary.get("missing_answer_rate",0):.1%}')
+            st.caption(summary.get("notes", ""))
+            st.dataframe(pd.DataFrame(summary.get("results", [])), use_container_width=True)
+

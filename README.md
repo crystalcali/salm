@@ -135,3 +135,13 @@ Verified public math corpus (requires datasets and HF access):
 
 Data provenance and task-level evaluation are essential. The arithmetic corpus
 is smoke-only. OpenR1 math_verify validates final answers, not each trace step.
+
+### Held-out generation evaluation (after training)
+
+    python -m salm.cli trace-evaluate --run runs/trace_jepa \
+      --data runs/trace_data/val.jsonl --limit 50
+    python -m salm.cli trace-evaluate --run runs/sft_control \
+      --data runs/trace_data/val.jsonl --limit 50
+
+This is a conservative exact-match check on explicitly supplied final answers,
+not an official mathematical reasoning benchmark.
