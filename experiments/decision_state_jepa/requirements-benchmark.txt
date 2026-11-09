@@ -1,0 +1,3 @@
+# Install in a separate environment or via `uv tool install harbor`.
+# Do not reinstall/replace the working CUDA-enabled PyTorch in the model venv.
+harbor

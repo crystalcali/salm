@@ -98,7 +98,7 @@ Capture files use compressed NumPy NPZ with JSON metadata, no Python pickle. Cap
 
 Architecture defaults match the [official LFM3-1.7B-Base config](https://huggingface.co/LiquidAI/LFM3-1.7B-Base/blob/main/config.json). The model itself is under Liquid AI's **LFM Open License v1.0**; check its license before redistribution or deployment. This repo contains only our research code.
 
-The hooks target the Hugging Face LFM3 implementation, not Ollama's llama.cpp runner. Captures require a PyTorch Transformers checkpoint. GPU profiling, actual attention weight matrices, GNN/JEPA fine-tuning and full-context streaming compression are future experiments; the current package does not claim to implement them.
+The hooks target the Hugging Face LFM3 implementation, not Ollama's llama.cpp runner. Captures require a PyTorch Transformers checkpoint. GPU profiling, complete attention-weight capture, and production-quality long-context memory are not implemented. Experimental LoRA/SFT and latent-state training live in separate research directories and must be validated on held-out benchmarks.
 
 See [research notes](docs/architecture.md), [contribution guidance](AGENTS.md), and the [official model card](https://huggingface.co/LiquidAI/LFM3-1.7B-Base).
 
@@ -145,3 +145,23 @@ is smoke-only. OpenR1 math_verify validates final answers, not each trace step.
 
 This is a conservative exact-match check on explicitly supplied final answers,
 not an official mathematical reasoning benchmark.
+
+## Decision-State JEPA: agentic LoRA SFT vs predicted decision states
+
+A new **two-arm** comparison lives at [`experiments/decision_state_jepa`](experiments/decision_state_jepa/README.md):
+ordinary LoRA SFT and LoRA + Decision-State JEPA. Both train on the same **12,000 successful
+NVIDIA Open-SWE-Traces v2.0 training tasks + 1,000 distinct validation tasks** when successfully
+prepared locally, with causal cuts at agent/tool/user event boundaries. Base weights are frozen.
+The decision variant predicts a latent next-event state from the available prefix, injects that
+prediction into later LFM3 decoder blocks to guide token generation, and also learns an auxiliary
+latent-alignment objective. No future tool results enter the predictor.
+
+Use **8192-token** configs first; optional **12,288-token** configs are included but may not fit
+DGX Spark. The original 4096-token Trace-JEPA experiment remains unchanged. Both variants have
+matched training configuration and the same external agent harness.
+
+**Primary held-out benchmark:** [Terminal-Bench 2.1](https://huggingface.co/datasets/harborframework/terminal-bench-2.1)
+(**89 tasks**) via the official Harbor sandbox verifier. This benchmark is NEVER training data.
+See the [experiment README](experiments/decision_state_jepa/README.md) for preparation, CUDA
+smoke tests, both 2000-step runs, official Harbor commands and limitations. No Terminal-Bench
+score is claimed until those runs finish on DGX Spark.

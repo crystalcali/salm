@@ -1,0 +1,20 @@
+{
+  "model": "LiquidAI/LFM3-1.7B-Base",
+  "mode": "sft",
+  "train": "runs/decision_state_data/train.jsonl",
+  "val": "runs/decision_state_data/val.jsonl",
+  "out": "runs/decision_state/sft_8k",
+  "seed": 42,
+  "max_seq_length": 8192,
+  "target_tokens": 768,
+  "batch_size": 1,
+  "grad_accum": 8,
+  "max_steps": 2000,
+  "lr": 0.0001,
+  "lora_rank": 16,
+  "lora_alpha": 32,
+  "eval_every": 200,
+  "eval_tasks": 100,
+  "save_every": 200,
+  "min_free_gib": 70
+}
