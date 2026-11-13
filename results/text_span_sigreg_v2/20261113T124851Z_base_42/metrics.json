@@ -1,0 +1,113 @@
+{
+  "method": "text span shared encoder + SIGReg, NO EMA",
+  "summary": "self-supervised span-embedding prediction; not canonical LeJEPA",
+  "tokens_seen": 20021248,
+  "history": [
+    {
+      "step": 1,
+      "tokens_seen": 32768,
+      "train_pred": 0.08120495174080133,
+      "train_sigreg": 0.4422113299369812,
+      "grad_norm": 0.45774173736572266,
+      "sec": 2.883415460586548,
+      "val_pred_loss": 0.08434116188436747,
+      "val_sigreg": 0.45978687703609467,
+      "val_at1": 0.15625,
+      "val_latent_std": 0.03496705833822489,
+      "val_rank": 5.669615149497986
+    },
+    {
+      "step": 100,
+      "tokens_seen": 3276800,
+      "train_pred": 5.651341507473262e-05,
+      "train_sigreg": 0.48293597623705864,
+      "grad_norm": 0.0019352224189788103,
+      "sec": 85.93469214439392,
+      "val_pred_loss": 5.676316413882887e-05,
+      "val_sigreg": 0.4829336777329445,
+      "val_at1": 0.15625,
+      "val_latent_std": 0.0014508933963952586,
+      "val_rank": 5.659505009651184
+    },
+    {
+      "step": 200,
+      "tokens_seen": 6553600,
+      "train_pred": 2.8956055530215963e-05,
+      "train_sigreg": 0.48282432556152344,
+      "grad_norm": 0.001573964487761259,
+      "sec": 167.97524428367615,
+      "val_pred_loss": 2.9017953011134523e-05,
+      "val_sigreg": 0.482821810990572,
+      "val_at1": 0.109375,
+      "val_latent_std": 0.00139453740848694,
+      "val_rank": 5.778085112571716
+    },
+    {
+      "step": 300,
+      "tokens_seen": 9830400,
+      "train_pred": 1.7726143823892926e-05,
+      "train_sigreg": 0.48283499479293823,
+      "grad_norm": 0.001361369388177991,
+      "sec": 250.39785027503967,
+      "val_pred_loss": 1.8460771343598026e-05,
+      "val_sigreg": 0.48283469676971436,
+      "val_at1": 0.078125,
+      "val_latent_std": 0.0013218579115346074,
+      "val_rank": 5.9650599360466
+    },
+    {
+      "step": 400,
+      "tokens_seen": 13107200,
+      "train_pred": 1.3677520314558933e-05,
+      "train_sigreg": 0.4828410856425762,
+      "grad_norm": 0.0013726303586736321,
+      "sec": 333.02860498428345,
+      "val_pred_loss": 1.3413229453362874e-05,
+      "val_sigreg": 0.48284053057432175,
+      "val_at1": 0.125,
+      "val_latent_std": 0.0012493420508690178,
+      "val_rank": 6.063346028327942
+    },
+    {
+      "step": 500,
+      "tokens_seen": 16384000,
+      "train_pred": 1.0276009334120317e-05,
+      "train_sigreg": 0.4828447848558426,
+      "grad_norm": 0.0011427529389038682,
+      "sec": 415.4841697216034,
+      "val_pred_loss": 1.0192174840994994e-05,
+      "val_sigreg": 0.48284389451146126,
+      "val_at1": 0.140625,
+      "val_latent_std": 0.0011871305468957871,
+      "val_rank": 6.146797835826874
+    },
+    {
+      "step": 600,
+      "tokens_seen": 19660800,
+      "train_pred": 8.664795700497052e-06,
+      "train_sigreg": 0.48284679278731346,
+      "grad_norm": 0.001208318630233407,
+      "sec": 502.3484523296356,
+      "val_pred_loss": 8.363311167158827e-06,
+      "val_sigreg": 0.48284685611724854,
+      "val_at1": 0.15625,
+      "val_latent_std": 0.0011377352348063141,
+      "val_rank": 6.225243449211121
+    },
+    {
+      "step": 611,
+      "tokens_seen": 20021248,
+      "train_pred": 8.624008955848694e-06,
+      "train_sigreg": 0.482846487313509,
+      "grad_norm": 0.0011853898176923394,
+      "sec": 511.61172580718994,
+      "val_pred_loss": 8.123573138618667e-06,
+      "val_sigreg": 0.48284706845879555,
+      "val_at1": 0.125,
+      "val_latent_std": 0.001126761140767485,
+      "val_rank": 6.222439110279083
+    }
+  ],
+  "validation_hash_holdout": true,
+  "note": "model trained with streaming data, stream cursor not persisted"
+}
