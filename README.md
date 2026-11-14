@@ -4,6 +4,13 @@ Research workbench for **LiquidAI/LFM3-1.7B-Base** on NVIDIA DGX Spark: inspect 
 
 **No model weights or credentials are stored in this repository.** All experiments run on your own machine; the Streamlit dashboard reads local capture files.
 
+## Text-JEPA v5: Colab pilots
+
+[Open the pilot suite in Colab](https://colab.research.google.com/github/crystalcali/salm/blob/experiment/text-jepa-v5-colab/notebooks/text_jepa_v5_colab.ipynb)
+to compare fixed SIGReg, smooth adaptive SIGReg, and span-MLM with shared data,
+private Hugging Face checkpoints and external representation tests.
+See [the v5 design, recovery guide and future learned-reasoning plan](docs/text-jepa-v5.md).
+
 ## Quick start (DGX Spark)
 
 Before the first GPU run on Ubuntu 24.04, install the interpreter development headers needed by Triton:

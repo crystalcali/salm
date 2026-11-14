@@ -1,0 +1,16 @@
+{
+  "preset": "base",
+  "seq_len": 1024,
+  "vocab_size": 50000,
+  "proj_dim": 256,
+  "global_batch": 128,
+  "micro_batch": 8,
+  "token_budget": 100000000,
+  "suffix_probability": 0.5,
+  "sigreg_weight": 0.25,
+  "sigreg_min": 0.2,
+  "sigreg_max": 0.45,
+  "rank_target_fraction": 0.2,
+  "controller_max_delta": 0.005,
+  "lr": 0.00005
+}
