@@ -5,6 +5,30 @@ from textwrap import dedent
 
 cells = []
 
+# This runs in the CURRENT notebook kernel. A new editable-install .pth file is
+# normally processed only when a Python interpreter starts, not when pip exits.
+SOURCE_SETUP = dedent('''
+def activate_source(root):
+    import importlib
+    import sys
+    from pathlib import Path
+    root = Path(root).resolve()
+    source = root / 'src'
+    if not (source / 'salm' / 'text_jepa_v5' / 'hub.py').is_file():
+        raise RuntimeError('Код v5 не найден. Выполните первую установочную ячейку '
+                           'с веткой experiment/text-jepa-v5-colab.')
+    if str(source) in sys.path:
+        sys.path.remove(str(source))
+    sys.path.insert(0, str(source))
+    importlib.invalidate_caches()
+    import salm
+    if Path(salm.__file__).resolve().parent != source / 'salm':
+        raise RuntimeError('Ядро уже загрузило другой пакет salm. Перезапустите ядро '
+                           'и выполните установочную ячейку заново.')
+    from salm.text_jepa_v5.config import Config
+    return root
+''')
+
 
 def md(text):
     cells.append({"cell_type": "markdown", "metadata": {},
@@ -37,7 +61,7 @@ md("""
     Реальное время, включая подготовку, оценку и загрузки, нужно контролировать:
     benchmark даёт оценку, а не гарантию. Большая модель автоматически не запускается.
 """)
-code("""
+code(dedent("""
     import os, sys, subprocess, json, time
     from pathlib import Path
     ROOT = Path('/content/salm-v5')
@@ -47,12 +71,15 @@ code("""
                         'https://github.com/crystalcali/salm.git', str(ROOT)], check=True)
     os.chdir(ROOT)
     subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '-e', '.[text-jepa-v5]'], check=True)
+""") + SOURCE_SETUP + dedent("""
+    ROOT = activate_source(ROOT)
+    print('salm source:', ROOT / 'src')
     print('Code revision:', subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
     import torch
     assert torch.cuda.is_available(), 'Выберите GPU runtime и перезапустите среду'
     print('GPU:', torch.cuda.get_device_name(0), '| PyTorch:', torch.__version__)
     assert torch.cuda.is_bf16_supported(), 'Для этого запуска нужен BF16'
-""")
+"""))
 md("""
     ## 1. Приватное хранилище и идентификатор эксперимента
 
@@ -60,7 +87,13 @@ md("""
     План с token budget и microbatch сохраняется на Hub до обучения; повторный запуск
     использует тот же план, подготовленные данные и checkpoints.
 """)
-code("""
+code(dedent("""
+    import os, json, time
+    from pathlib import Path
+""") + SOURCE_SETUP + dedent("""
+    # Also works after a kernel restart when the checkout is already on disk.
+    ROOT = activate_source(globals().get('ROOT', '/content/salm-v5'))
+    os.chdir(ROOT)
     from google.colab import userdata
     from huggingface_hub import HfApi, hf_hub_download
     from salm.text_jepa_v5.hub import PrivateHub, safe_path
@@ -80,7 +113,7 @@ code("""
     OUT = Path('/content/text-jepa-v5-runs') / EXPERIMENT_ID
     OUT.mkdir(parents=True, exist_ok=True)
     print('Private repository:', HF_REPO, '| Experiment:', EXPERIMENT_ID)
-""")
+"""))
 md("""
     ## 2. Измерение скорости и фиксация бюджета
 
